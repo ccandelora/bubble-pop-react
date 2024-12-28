@@ -11,22 +11,19 @@ Object.values(sounds).forEach(sound => {
   sound.volume = 0.3;
 });
 
-export const playSound = (soundName, isMuted = false) => {
+export const playSound = (soundName, isMuted, delay = 0) => {
   if (isMuted) return;
   
   const sound = sounds[soundName];
-  if (sound) {
-    // Reset the audio to start
-    sound.currentTime = 0;
-    // Create a promise to handle autoplay restrictions
-    const playPromise = sound.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Auto-play was prevented, we'll need user interaction first
-        console.log('Audio playback requires user interaction first');
-      });
-    }
-  }
+  if (!sound) return;
+
+  // Reset the audio to start
+  sound.currentTime = 0;
+  
+  // Play the sound after the specified delay
+  setTimeout(() => {
+    sound.play().catch(err => console.error('Error playing sound:', err));
+  }, delay);
 };
 
 export default sounds;

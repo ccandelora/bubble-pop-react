@@ -575,7 +575,8 @@ const Game = ({ onGameOver, player }) => {
     }
 
     isProcessing.current = true;
-    playSound('pop', isMuted);
+    // Increase delay to 200ms to better match the animation timing
+    playSound('pop', isMuted, 200);
     
     setBubbles(currentBubbles => {
       // Ensure the bubble still exists in current state
