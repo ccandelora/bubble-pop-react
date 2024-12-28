@@ -1,16 +1,8 @@
-import React, { Suspense, lazy, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { playSound } from './utils/sounds';
 import PlayerSelect from './components/PlayerSelect';
-
-// Lazy load the Game component
-const Game = lazy(() => import('./components/Game'));
-
-// Pre-load the Game component
-const preloadGame = () => {
-  const gamePromise = import('./components/Game');
-  return gamePromise;
-};
+import Game from './components/Game';
 
 // Styled components
 const AppContainer = styled.div`
@@ -72,7 +64,6 @@ const LoadingScreen = styled.div`
 function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [gamePreloaded, setGamePreloaded] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [showPlayerSelect, setShowPlayerSelect] = useState(false);
 
@@ -92,13 +83,6 @@ function App() {
       document.body.style.height = '';
       document.removeEventListener('touchmove', (e) => e.preventDefault());
     };
-  }, []);
-
-  // Preload the game component when the app mounts
-  useEffect(() => {
-    preloadGame().then(() => {
-      setGamePreloaded(true);
-    });
   }, []);
 
   const handleStartClick = async () => {
@@ -136,25 +120,15 @@ function App() {
         ) : showPlayerSelect ? (
           <PlayerSelect onSelectPlayer={handleSelectPlayer} />
         ) : (
-          <StartButton 
-            onClick={handleStartClick}
-            disabled={!gamePreloaded}
-          >
+          <StartButton onClick={handleStartClick}>
             Start Game
           </StartButton>
         )
       ) : (
-        <Suspense fallback={
-          <LoadingScreen>
-            <div className="loader" />
-            <div>Loading Game...</div>
-          </LoadingScreen>
-        }>
-          <Game 
-            onGameOver={handleGameOver} 
-            player={selectedPlayer}
-          />
-        </Suspense>
+        <Game 
+          onGameOver={handleGameOver} 
+          player={selectedPlayer}
+        />
       )}
     </AppContainer>
   );
