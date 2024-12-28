@@ -25,6 +25,7 @@ const BubbleContainer = styled.div`
   position: relative;
   cursor: pointer;
   transition: transform 0.2s ease;
+  pointer-events: auto;
 
   &:hover {
     transform: scale(1.1);
@@ -50,7 +51,7 @@ const BubbleCircle = styled.div`
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: ${props => props.color};
+  background: ${props => props.$color};
   position: relative;
   display: flex;
   justify-content: center;
@@ -59,9 +60,9 @@ const BubbleCircle = styled.div`
     inset -4px -4px 8px rgba(0,0,0,0.3),
     inset 4px 4px 8px rgba(255,255,255,0.4),
     0 4px 8px rgba(0,0,0,0.2);
-  animation: ${props => props.isPopping ? css`${pop} 0.3s ease-out forwards` : 'none'},
-           ${props => props.isRainbow ? css`${rainbow} 2s linear infinite` : 'none'},
-           ${props => props.hasSparkle ? css`${sparkle} 0.5s ease-in-out infinite` : 'none'};
+  animation: ${props => props.$isPopping ? css`${pop} 0.3s ease-out forwards` : 'none'},
+           ${props => props.$isRainbow ? css`${rainbow} 2s linear infinite` : 'none'},
+           ${props => props.$hasSparkle ? css`${sparkle} 0.5s ease-in-out infinite` : 'none'};
 
   &::before {
     content: '';
@@ -75,7 +76,7 @@ const BubbleCircle = styled.div`
     filter: blur(2px);
   }
 
-  ${props => props.isRainbow && css`
+  ${props => props.$isRainbow && css`
     background: linear-gradient(
       45deg,
       #FF0000,
@@ -89,7 +90,7 @@ const BubbleCircle = styled.div`
     background-size: 200% 200%;
   `}
 
-  ${props => props.hasSparkle && css`
+  ${props => props.$hasSparkle && css`
     &::after {
       content: '✨';
       position: absolute;
@@ -118,14 +119,19 @@ const powerUpEmojis = {
 };
 
 const Bubble = ({ color, onClick, isPopping, isRainbow, hasSparkle, hasPowerUp, powerUpType }) => {
+  const handleClick = (event) => {
+    event.stopPropagation();
+    onClick(event);
+  };
+
   return (
-    <BubbleContainer onClick={onClick}>
+    <BubbleContainer onClick={handleClick}>
       <BubbleContent>
         <BubbleCircle
-          color={color}
-          isPopping={isPopping}
-          isRainbow={isRainbow}
-          hasSparkle={hasSparkle}
+          $color={color}
+          $isPopping={isPopping}
+          $isRainbow={isRainbow}
+          $hasSparkle={hasSparkle}
         />
         {hasPowerUp && (
           <PowerUpIndicator>

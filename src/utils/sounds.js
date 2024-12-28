@@ -2,13 +2,12 @@ const sounds = {
   pop: new Audio('/sounds/pop.mp3'),
   combo: new Audio('/sounds/combo.mp3'),
   powerup: new Audio('/sounds/powerup.mp3'),
-  gameOver: new Audio('/sounds/gameover.mp3'),
+  gameOver: new Audio('/sounds/gameover.mp3')
 };
 
-// Pre-load sounds
+// Pre-load sounds and set volume
 Object.values(sounds).forEach(sound => {
   sound.load();
-  // Set volume
   sound.volume = 0.3;
 });
 
