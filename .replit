@@ -1,3 +1,4 @@
+
 run = "npm run start"
 hidden = [".config", "package-lock.json"]
 entrypoint = "src/index.js"
@@ -16,7 +17,7 @@ language = "nodejs"
 [packager.features]
 packageSearch = true
 guessImports = true
-enabledForHosting = false
+enabledForHosting = true
 
 [languages]
 
@@ -28,9 +29,9 @@ start = "typescript-language-server --stdio"
 
 [deployment]
 build = ["npm", "install"]
-run = ["npm", "run", "build", "&&", "npm", "start"]
+run = ["npm", "start"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
-localPort = 3000
+localPort = 8080
 externalPort = 80
