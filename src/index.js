@@ -34,7 +34,6 @@ function startGame(playerName) {
         currentGame.onGameOver = (score) => {
             console.log(`Game over! Score: ${score}`);
             setTimeout(() => {
-                alert(`Great job ${playerName}! You scored ${score} points!`);
                 // Return to player select
                 showPlayerSelect();
             }, 2000);
