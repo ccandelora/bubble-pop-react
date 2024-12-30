@@ -1,56 +1,61 @@
 const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
-    mode: 'development',
     entry: './src/index.js',
     output: {
-        filename: 'bundle.js',
         path: path.resolve(__dirname, 'dist'),
-        publicPath: '/'
+        filename: 'bundle.js',
+        clean: true
     },
     module: {
         rules: [
             {
-                test: /\.css$/,
-                use: ['style-loader', 'css-loader'],
+                test: /\.js$/,
+                exclude: /node_modules/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env']
+                    }
+                }
             },
             {
-                test: /\.(png|svg|jpg|jpeg|gif|webp)$/i,
-                type: 'asset/resource',
-            },
-        ],
-    },
-    resolve: {
-        extensions: ['.js', '.jsx'],
-        alias: {
-            '@babylonjs/core': path.resolve(__dirname, 'node_modules/@babylonjs/core'),
-            '@babylonjs/gui': path.resolve(__dirname, 'node_modules/@babylonjs/gui')
-        }
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader']
+            }
+        ]
     },
     plugins: [
+        new HtmlWebpackPlugin({
+            template: './public/index.html',
+            filename: 'index.html'
+        }),
         new CopyWebpackPlugin({
             patterns: [
-                { 
-                    from: 'public',
-                    to: ''
-                }
+                { from: 'public/sounds', to: 'sounds' },
+                { from: 'public/images', to: 'images' },
+                { from: 'public/textures', to: 'textures' }
             ]
         })
     ],
     devServer: {
         static: {
-            directory: path.join(__dirname, 'public'),
+            directory: path.join(__dirname, 'dist')
         },
         compress: true,
         port: 3000,
         hot: true,
-        historyApiFallback: true,
-        host: '0.0.0.0',
-        allowedHosts: 'all',
-        headers: {
-            "Access-Control-Allow-Origin": "*"
-        }
+        open: true,
+        host: '0.0.0.0'
     },
-    devtool: 'source-map'
+    performance: {
+        hints: false,
+        maxEntrypointSize: 512000,
+        maxAssetSize: 512000
+    },
+    optimization: {
+        minimize: true
+    }
 }; 
