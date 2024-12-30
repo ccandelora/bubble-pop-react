@@ -45,7 +45,9 @@ module.exports = {
         compress: true,
         port: 3000,
         hot: true,
-        historyApiFallback: true
+        historyApiFallback: true,
+        host: '0.0.0.0',
+        allowedHosts: 'all'
     },
     devtool: 'source-map'
 }; 
