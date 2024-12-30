@@ -2,7 +2,7 @@ import * as BABYLON from '@babylonjs/core';
 import * as GUI from '@babylonjs/gui';
 import '@babylonjs/loaders';
 import '@babylonjs/inspector';
-import { playSound, initSounds } from './utils/sounds';
+import { playSound, initSounds, stopAllSounds, toggleMute, isMuted } from './utils/sounds';
 import { CelebrationScreen } from './CelebrationScreen';
 import { colors, GAME_CONFIG, GAME_STATES, BUBBLE_TYPES, LEVEL_REQUIREMENTS } from './config';
 
@@ -61,9 +61,6 @@ export class BubblePopGame {
         // Initialize GUI (renderingGroupId = 1)
         await this.setupGUI();
 
-        // Initialize sounds
-        await initSounds();
-
         // Create bubble grid
         this.createBubbleGrid();
 
@@ -83,6 +80,20 @@ export class BubblePopGame {
 
         // Set game state to playing
         this.gameState.state = GAME_STATES.PLAYING;
+
+        // Add a one-time click handler to start music after user interaction
+        const startGameMusic = () => {
+            if (!isMuted('music')) {
+                const songName = this.playerName.toLowerCase() === 'madison' ? 'madi-song' : 'james-song';
+                stopAllSounds();
+                playSound(songName);
+            }
+            this.canvas.removeEventListener('click', startGameMusic);
+            this.canvas.removeEventListener('touchstart', startGameMusic);
+        };
+
+        this.canvas.addEventListener('click', startGameMusic);
+        this.canvas.addEventListener('touchstart', startGameMusic);
     }
 
     setupCamera() {
@@ -162,6 +173,52 @@ export class BubblePopGame {
     async setupGUI() {
         this.gui = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
         this.gui.renderingGroupId = 1;  // Set GUI to render behind bubbles
+
+        // Add sound control buttons in the top-right corner
+        const soundControlsContainer = new GUI.StackPanel("soundControls");
+        soundControlsContainer.width = "200px";
+        soundControlsContainer.height = "100px";
+        soundControlsContainer.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        soundControlsContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        soundControlsContainer.top = "120px"; // Below the moves counter
+        soundControlsContainer.right = "20px";
+        soundControlsContainer.spacing = 10;
+        soundControlsContainer.zIndex = 1000;
+        this.gui.addControl(soundControlsContainer);
+
+        // Music mute button
+        const musicButton = GUI.Button.CreateSimpleButton("musicToggle", "🎵 Music: " + (isMuted('music') ? 'OFF' : 'ON'));
+        musicButton.width = "180px";
+        musicButton.height = "40px";
+        musicButton.color = "white";
+        musicButton.cornerRadius = 10;
+        musicButton.background = isMuted('music') ? "rgba(255, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)";
+        musicButton.onPointerClickObservable.add(() => {
+            const isMusicMuted = toggleMute('music');
+            musicButton.children[0].text = `🎵 Music: ${isMusicMuted ? 'OFF' : 'ON'}`;
+            musicButton.background = isMusicMuted ? "rgba(255, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)";
+            
+            // If unmuting and we're in game, play the appropriate character song
+            if (!isMusicMuted) {
+                const songName = this.playerName.toLowerCase() === 'madison' ? 'madi-song' : 'james-song';
+                playSound(songName);
+            }
+        });
+        soundControlsContainer.addControl(musicButton);
+
+        // Sound effects mute button
+        const effectsButton = GUI.Button.CreateSimpleButton("effectsToggle", "🔊 Effects: " + (isMuted('effects') ? 'OFF' : 'ON'));
+        effectsButton.width = "180px";
+        effectsButton.height = "40px";
+        effectsButton.color = "white";
+        effectsButton.cornerRadius = 10;
+        effectsButton.background = isMuted('effects') ? "rgba(255, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)";
+        effectsButton.onPointerClickObservable.add(() => {
+            const isEffectsMuted = toggleMute('effects');
+            effectsButton.children[0].text = `🔊 Effects: ${isEffectsMuted ? 'OFF' : 'ON'}`;
+            effectsButton.background = isEffectsMuted ? "rgba(255, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.5)";
+        });
+        soundControlsContainer.addControl(effectsButton);
 
         // Create player name text
         this.playerText = new GUI.TextBlock();
@@ -415,12 +472,12 @@ export class BubblePopGame {
             setTimeout(() => {
                 this.applyGravity();
                 this.gameState.isProcessingMatch = false;
-            }, 300);
 
-            // Check for game over conditions
-            if (this.gameState.movesLeft <= 0) {
-                this.endGame();
-            }
+                // Check for game over after gravity is applied
+                if (this.gameState.movesLeft <= 0) {
+                    this.handleGameOver();
+                }
+            }, 300);
         }
     }
 
@@ -976,14 +1033,14 @@ export class BubblePopGame {
 
         // Check for game over
         if (this.gameState.movesLeft <= 0) {
-            this.gameState.state = GAME_STATES.GAME_OVER;
-            if (this.onGameOver) {
-                this.onGameOver(this.gameState.score);
-            }
+            this.handleGameOver();
         }
     }
 
     dispose() {
+        // Stop any playing music
+        stopAllSounds();
+        
         // Dispose of the global glow layer
         if (this.globalGlowLayer) {
             this.globalGlowLayer.dispose();
@@ -1054,372 +1111,16 @@ export class BubblePopGame {
     }
 
     handleGameOver() {
+        if (this.gameState.state === GAME_STATES.GAME_OVER) return; // Prevent multiple calls
+        
         this.gameState.state = GAME_STATES.GAME_OVER;
         
-        // Dispose of the current game scene
-        this.dispose();
-        
-        // Create the celebration screen
-        new CelebrationScreen(this.canvas, this.gameState.score, this.playerName);
-    }
+        // Stop current music and play end-game music
+        stopAllSounds();
+        playSound('end-song');
 
-    showCelebrationEffects() {
-        // Create multiple particle systems for a grand celebration
-        const colors = [
-            new BABYLON.Color4(1, 0.2, 0.2, 1), // Red
-            new BABYLON.Color4(0.2, 1, 0.2, 1), // Green
-            new BABYLON.Color4(0.2, 0.2, 1, 1), // Blue
-            new BABYLON.Color4(1, 1, 0.2, 1),   // Yellow
-            new BABYLON.Color4(1, 0.2, 1, 1)    // Purple
-        ];
-
-        // Create confetti and fireworks at different positions
-        for (let i = 0; i < 5; i++) {
-            const position = new BABYLON.Vector3(
-                (Math.random() - 0.5) * 10,
-                (Math.random() - 0.5) * 5,
-                0
-            );
-
-            // Create firework effect
-            this.createFirework(position, colors[i]);
-            
-            // Create confetti effect
-            this.createConfetti(position, colors[i]);
-        }
-
-        // Add celebratory text with animation
-        const celebrationText = new GUI.TextBlock();
-        celebrationText.text = "🎉 Amazing Job! 🎉";
-        celebrationText.color = "white";
-        celebrationText.fontSize = 48;
-        celebrationText.shadowColor = "black";
-        celebrationText.shadowBlur = 10;
-        celebrationText.fontFamily = "Comic Sans MS";
-        this.gui.addControl(celebrationText);
-
-        // Animate the celebration text
-        const scaleAnimation = new BABYLON.Animation(
-            "textScale",
-            "scaleX",
-            60,
-            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-        );
-
-        const keys = [];
-        keys.push({ frame: 0, value: 1 });
-        keys.push({ frame: 30, value: 1.2 });
-        keys.push({ frame: 60, value: 1 });
-
-        scaleAnimation.setKeys(keys);
-        celebrationText.animations = [scaleAnimation];
-        this.scene.beginAnimation(celebrationText, 0, 60, true);
-    }
-
-    createFirework(position, color) {
-        const particleSystem = new BABYLON.ParticleSystem("firework", 200, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("./textures/sparkle.png", this.scene);
-        particleSystem.emitter = position;
-        particleSystem.color1 = color;
-        particleSystem.color2 = color;
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.3;
-        particleSystem.minLifeTime = 1;
-        particleSystem.maxLifeTime = 2;
-        particleSystem.emitRate = 100;
-        particleSystem.minEmitPower = 1;
-        particleSystem.maxEmitPower = 3;
-        particleSystem.gravity = new BABYLON.Vector3(0, -0.5, 0);
-        particleSystem.createSphereEmitter(0.1);
-        particleSystem.start();
-
-        setTimeout(() => {
-            particleSystem.stop();
-            setTimeout(() => particleSystem.dispose(), 2000);
-        }, 1000);
-    }
-
-    createConfetti(position, color) {
-        const particleSystem = new BABYLON.ParticleSystem("confetti", 100, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/confetti.png", this.scene);
-        particleSystem.emitter = position;
-        particleSystem.color1 = color;
-        particleSystem.color2 = color;
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.2;
-        particleSystem.minLifeTime = 2;
-        particleSystem.maxLifeTime = 4;
-        particleSystem.emitRate = 50;
-        particleSystem.minEmitPower = 0.5;
-        particleSystem.maxEmitPower = 1.5;
-        particleSystem.gravity = new BABYLON.Vector3(0, -0.1, 0);
-        particleSystem.start();
-
-        setTimeout(() => {
-            particleSystem.stop();
-            setTimeout(() => particleSystem.dispose(), 4000);
-        }, 2000);
-    }
-
-    findBubblesInHeartShape(centerRow, centerCol, radius) {
-        const bubbles = [];
-        const heartShape = [
-            [-1,-1], [-1,0], [-1,1],
-            [0,-2], [0,-1], [0,0], [0,1], [0,2],
-            [1,-2], [1,-1], [1,0], [1,1], [1,2],
-            [2,-1], [2,0], [2,1]
-        ];
-
-        for (const [rowOffset, colOffset] of heartShape) {
-            const row = centerRow + rowOffset;
-            const col = centerCol + colOffset;
-            if (row >= 0 && row < GAME_CONFIG.GRID.ROWS &&
-                col >= 0 && col < GAME_CONFIG.GRID.COLS) {
-                const bubble = this.gameState.grid[row][col];
-                if (bubble && !bubble.isPopped) {
-                    bubbles.push(bubble);
-                }
-            }
-        }
-        return bubbles;
-    }
-
-    findBubblesInCrownShape(centerRow, centerCol, radius) {
-        const bubbles = [];
-        const crownShape = [
-            [-2,0], [-2,1], [-2,2],
-            [-1,-1], [-1,0], [-1,1], [-1,2], [-1,3],
-            [0,-2], [0,-1], [0,0], [0,1], [0,2], [0,3], [0,4],
-            [1,-1], [1,0], [1,1], [1,2], [1,3]
-        ];
-
-        for (const [rowOffset, colOffset] of crownShape) {
-            const row = centerRow + rowOffset;
-            const col = centerCol + colOffset;
-            if (row >= 0 && row < GAME_CONFIG.GRID.ROWS &&
-                col >= 0 && col < GAME_CONFIG.GRID.COLS) {
-                const bubble = this.gameState.grid[row][col];
-                if (bubble && !bubble.isPopped) {
-                    bubbles.push(bubble);
-                }
-            }
-        }
-        return bubbles;
-    }
-
-    showPrincessEffect(bubble) {
-        // Create heart-shaped particle effect
-        const particleSystem = new BABYLON.ParticleSystem("princessMagic", 200, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/heart.png", this.scene);
-        particleSystem.emitter = bubble.mesh;
-        
-        // Princess colors (pink and purple)
-        particleSystem.addColorGradient(0, new BABYLON.Color4(1, 0.4, 0.8, 1));
-        particleSystem.addColorGradient(0.5, new BABYLON.Color4(0.8, 0.3, 0.6, 1));
-        particleSystem.addColorGradient(1, new BABYLON.Color4(1, 0.6, 0.9, 1));
-
-        // Particle behavior
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.3;
-        particleSystem.minLifeTime = 1;
-        particleSystem.maxLifeTime = 2;
-        particleSystem.emitRate = 100;
-        particleSystem.createHemisphericEmitter(2);
-        
-        // Add sparkle and twirl
-        particleSystem.angularSpeedVariation = Math.PI;
-        particleSystem.start();
-
-        // Add floating hearts
-        for (let i = 0; i < 8; i++) {
-            const heart = BABYLON.MeshBuilder.CreatePlane("heart", { size: 0.3 }, this.scene);
-            const heartMat = new BABYLON.StandardMaterial("heartMat", this.scene);
-            heartMat.diffuseTexture = new BABYLON.Texture("textures/heart.png", this.scene);
-            heartMat.emissiveColor = new BABYLON.Color3(1, 0.4, 0.8);
-            heartMat.alpha = 0.8;
-            heart.material = heartMat;
-            heart.position = bubble.mesh.position.clone();
-            heart.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
-
-            const angle = (i / 8) * Math.PI * 2;
-            const radius = 1;
-            const floatAnimation = new BABYLON.Animation(
-                "floatHeart",
-                "position",
-                30,
-                BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
-                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-            );
-
-            const keys = [];
-            keys.push({
-                frame: 0,
-                value: heart.position.clone()
-            });
-            keys.push({
-                frame: 30,
-                value: new BABYLON.Vector3(
-                    heart.position.x + Math.cos(angle) * radius,
-                    heart.position.y + Math.sin(angle) * radius + 0.5,
-                    heart.position.z
-                )
-            });
-
-            floatAnimation.setKeys(keys);
-            heart.animations = [floatAnimation];
-            this.scene.beginAnimation(heart, 0, 30, false, 1, () => {
-                heart.dispose();
-            });
-        }
-
-        setTimeout(() => {
-            particleSystem.stop();
-            setTimeout(() => particleSystem.dispose(), 2000);
-        }, 1000);
-    }
-
-    showPrinceEffect(bubble) {
-        // Create crown-shaped particle effect
-        const particleSystem = new BABYLON.ParticleSystem("princeMagic", 200, this.scene);
-        particleSystem.particleTexture = new BABYLON.Texture("textures/crown.png", this.scene);
-        particleSystem.emitter = bubble.mesh;
-        
-        // Royal colors (gold and blue)
-        particleSystem.addColorGradient(0, new BABYLON.Color4(1, 0.84, 0, 1));
-        particleSystem.addColorGradient(0.5, new BABYLON.Color4(0.1, 0.3, 0.8, 1));
-        particleSystem.addColorGradient(1, new BABYLON.Color4(1, 0.94, 0.2, 1));
-
-        // Particle behavior
-        particleSystem.minSize = 0.1;
-        particleSystem.maxSize = 0.3;
-        particleSystem.minLifeTime = 1;
-        particleSystem.maxLifeTime = 2;
-        particleSystem.emitRate = 100;
-        
-        // Create crown-shaped emission
-        particleSystem.createBoxEmitter(
-            new BABYLON.Vector3(-1, 0, 0),
-            new BABYLON.Vector3(1, 1, 0),
-            new BABYLON.Vector3(0, 0, 0),
-            new BABYLON.Vector3(0, 1, 0)
-        );
-        
-        // Add sparkle and rotation
-        particleSystem.angularSpeedVariation = Math.PI / 2;
-        particleSystem.start();
-
-        // Add floating crowns
-        for (let i = 0; i < 5; i++) {
-            const crown = BABYLON.MeshBuilder.CreatePlane("crown", { size: 0.4 }, this.scene);
-            const crownMat = new BABYLON.StandardMaterial("crownMat", this.scene);
-            crownMat.diffuseTexture = new BABYLON.Texture("textures/crown.png", this.scene);
-            crownMat.emissiveColor = new BABYLON.Color3(1, 0.84, 0);
-            crownMat.alpha = 0.8;
-            crown.material = crownMat;
-            crown.position = bubble.mesh.position.clone();
-            crown.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
-
-            const angle = (i / 5) * Math.PI * 2;
-            const radius = 0.8;
-            const floatAnimation = new BABYLON.Animation(
-                "floatCrown",
-                "position",
-                30,
-                BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
-                BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-            );
-
-            const keys = [];
-            keys.push({
-                frame: 0,
-                value: crown.position.clone()
-            });
-            keys.push({
-                frame: 30,
-                value: new BABYLON.Vector3(
-                    crown.position.x + Math.cos(angle) * radius,
-                    crown.position.y + Math.sin(angle) * radius + 0.3,
-                    crown.position.z
-                )
-            });
-
-            floatAnimation.setKeys(keys);
-            crown.animations = [floatAnimation];
-            this.scene.beginAnimation(crown, 0, 30, false, 1, () => {
-                crown.dispose();
-            });
-        }
-
-        setTimeout(() => {
-            particleSystem.stop();
-            setTimeout(() => particleSystem.dispose(), 2000);
-        }, 1000);
-    }
-
-    findBubblesInRadius(centerRow, centerCol, radius) {
-        const bubbles = [];
-        
-        // Check all positions within the radius
-        for (let row = Math.max(0, centerRow - radius); row <= Math.min(GAME_CONFIG.GRID.ROWS - 1, centerRow + radius); row++) {
-            for (let col = Math.max(0, centerCol - radius); col <= Math.min(GAME_CONFIG.GRID.COLS - 1, centerCol + radius); col++) {
-                // Calculate distance from center
-                const distance = Math.sqrt(Math.pow(row - centerRow, 2) + Math.pow(col - centerCol, 2));
-                
-                // If within radius and bubble exists
-                if (distance <= radius && this.gameState.grid[row][col] && !this.gameState.grid[row][col].isPopped) {
-                    bubbles.push(this.gameState.grid[row][col]);
-                }
-            }
-        }
-        
-        return bubbles;
-    }
-
-    findAllBubblesOfColor(targetColor) {
-        const bubbles = [];
-        
-        // Check all positions in the grid
-        for (let row = 0; row < GAME_CONFIG.GRID.ROWS; row++) {
-            for (let col = 0; col < GAME_CONFIG.GRID.COLS; col++) {
-                const bubble = this.gameState.grid[row][col];
-                if (bubble && 
-                    !bubble.isPopped && 
-                    !this.disposedMeshes.has(bubble.mesh) && 
-                    bubble.color === targetColor) {
-                    bubbles.push(bubble);
-                }
-            }
-        }
-        
-        console.log(`Found ${bubbles.length} bubbles of color ${targetColor}`);
-        return bubbles;
-    }
-
-    updateScore(matchCount) {
-        // Calculate points based on match count
-        const points = matchCount * 10;  // 10 points per bubble
-        this.gameState.score += points;
-        
-        // Update score display
-        if (this.scoreText) {
-            this.scoreText.text = `Score: ${this.gameState.score}`;
-        }
-    }
-
-    updateMovesText() {
-        if (this.movesText) {
-            this.movesText.text = `Moves: ${this.gameState.movesLeft}`;
-        }
-    }
-
-    endGame() {
-        this.gameState.state = GAME_STATES.GAME_OVER;
-        
         // Create celebration UI
         const guiTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("celebrationUI");
-
-        
 
         // Add semi-transparent overlay
         const overlay = new GUI.Rectangle("overlay");
@@ -1442,7 +1143,7 @@ export class BubblePopGame {
         const textContainer = new GUI.StackPanel("textContainer");
         textContainer.width = "100%";
         textContainer.height = "100%";
-        textContainer.spacing = 40;  // Increased spacing between elements
+        textContainer.spacing = 40;
         textContainer.paddingTop = "50px";
         mainContainer.addControl(textContainer);
 
@@ -1463,8 +1164,8 @@ export class BubblePopGame {
         const playerText = new GUI.TextBlock();
         playerText.text = `Way to go, ${this.playerName}!`;
         playerText.color = "#FFD700";
-        playerText.fontSize = 48;
-        playerText.height = "80px";
+        playerText.fontSize = 80;
+        playerText.height = "125px";
         playerText.fontFamily = "Comic Sans MS";
         playerText.shadowColor = "black";
         playerText.shadowBlur = 5;
@@ -1486,42 +1187,30 @@ export class BubblePopGame {
         // Add fun emojis
         const emojiText = new GUI.TextBlock();
         emojiText.text = "🦄 🌟 👑 ✨ 🎈 🎨";
-        emojiText.fontSize = 48;
-        emojiText.height = "80px";
+        emojiText.fontSize = 70;
+        emojiText.height = "120px";
         textContainer.addControl(emojiText);
 
-        // Add spacer
-        const spacer = new GUI.Rectangle();
-        spacer.height = "40px";
-        spacer.thickness = 0;
-        textContainer.addControl(spacer);
-
-        // Create button container at the bottom of the screen
+        // Create button container
         const buttonContainer = new GUI.Rectangle();
         buttonContainer.width = 1;
         buttonContainer.height = "150px";
         buttonContainer.thickness = 0;
         buttonContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
         buttonContainer.top = "-100px";
-        guiTexture.addControl(buttonContainer);  // Add to main guiTexture, not textContainer
+        guiTexture.addControl(buttonContainer);
 
         // Add "Play Again" button
-        const playAgainBtn = new GUI.Button("playAgain");
+        const playAgainBtn = GUI.Button.CreateSimpleButton("playAgain", "Play Again! 🎮");
         playAgainBtn.width = "300px";
         playAgainBtn.height = "80px";
         playAgainBtn.color = "white";
         playAgainBtn.cornerRadius = 20;
         playAgainBtn.background = "#4CAF50";
         playAgainBtn.thickness = 4;
+        playAgainBtn.fontSize = 36;
+        playAgainBtn.fontFamily = "Comic Sans MS";
         buttonContainer.addControl(playAgainBtn);
-
-        // Create text block for button
-        const buttonText = new GUI.TextBlock();
-        buttonText.text = "Play Again! 🎮";
-        buttonText.color = "white";
-        buttonText.fontSize = 36;
-        buttonText.fontFamily = "Comic Sans MS";
-        playAgainBtn.addControl(buttonText);
 
         // Add hover effect
         playAgainBtn.onPointerEnterObservable.add(() => {
@@ -1531,22 +1220,13 @@ export class BubblePopGame {
             playAgainBtn.background = "#4CAF50";
         });
 
-        playAgainBtn.onPointerUpObservable.add(() => {
-            // Clean up current game state
-            this.scene.dispose();
-            guiTexture.dispose();
-            
-            // Dispose of all particle systems
-            this.scene.particleSystems.forEach(system => {
-                system.dispose();
-            });
-            
-            // Clear any remaining animations
-            this.scene.stopAllAnimations();
-            
-            // Call onGameOver with a special flag to indicate returning to player select
+        // Handle play again click
+        playAgainBtn.onPointerClickObservable.add(() => {
             if (this.onGameOver) {
-                this.onGameOver(this.gameState.score, true);  // true indicates return to player select
+                // Stop end-game music before transitioning
+                stopAllSounds();
+                // Return to player select screen
+                this.onGameOver(this.gameState.score);
             }
         });
 
@@ -1610,5 +1290,22 @@ export class BubblePopGame {
         stars.color1 = new BABYLON.Color4(1, 1, 0, 1);
         stars.color2 = new BABYLON.Color4(1, 0.5, 0, 1);
         stars.start();
+    }
+
+    updateScore(matchCount) {
+        // Calculate points based on match count
+        const points = matchCount * 10;  // 10 points per bubble
+        this.gameState.score += points;
+        
+        // Update score display
+        if (this.scoreText) {
+            this.scoreText.text = `Score: ${this.gameState.score}`;
+        }
+    }
+
+    updateMovesText() {
+        if (this.movesText) {
+            this.movesText.text = `Moves: ${this.gameState.movesLeft}`;
+        }
     }
 } 

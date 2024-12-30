@@ -1,94 +1,135 @@
-// Create audio context lazily
-let audioContext = null;
+// Map to store all audio elements
+const audioElements = new Map();
 
-// Sound cache
-const soundCache = new Map();
-
-// Sound URLs - using verified working files
-const SOUND_URLS = {
-  pop: '/sounds/pop.mp3',
-  powerup: '/sounds/combo.mp3', // Using combo sound for powerup
-  explosion: '/sounds/explosion.mp3',
-  magic: '/sounds/magic.mp3',
-  chain: '/sounds/chain.mp3',
-  gameOver: '/sounds/gameover.mp3'
+// Mute state for different audio categories
+const muteState = {
+    music: false,
+    effects: false
 };
 
-// Initialize audio context on first user interaction
-const initAudioContext = () => {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    // Resume audio context if it's suspended
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
+// Sound categories
+const SOUND_CATEGORIES = {
+    music: ['intro-song', 'madi-song', 'james-song', 'end-song'],
+    effects: ['powerup', 'pop']
+};
+
+// Track initialization state
+let isInitialized = false;
+
+// Initialize sounds
+export function initSounds() {
+    // Prevent multiple initializations
+    if (isInitialized) {
+        console.log('Sounds already initialized, skipping...');
+        return;
     }
-  }
-  return audioContext;
-};
 
-// Load and cache a sound with better error handling
-const loadSound = async (soundName) => {
-  if (!audioContext) {
-    console.warn('Audio context not initialized yet');
-    return null;
-  }
+    console.log('Initializing sounds...');
+    
+    // Create and configure audio elements for each sound
+    const sounds = [
+        { name: 'intro-song', loop: true, category: 'music' },
+        { name: 'madi-song', loop: false, category: 'music' },
+        { name: 'james-song', loop: false, category: 'music' },
+        { name: 'end-song', loop: false, category: 'music' },
+        { name: 'powerup', loop: false, category: 'effects' },
+        { name: 'pop', loop: false, category: 'effects' }
+    ];
 
-  if (!soundCache.has(soundName)) {
-    try {
-      const response = await fetch(SOUND_URLS[soundName]);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength === 0) {
-        throw new Error('Sound file is empty');
-      }
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      soundCache.set(soundName, audioBuffer);
-    } catch (error) {
-      console.error(`Failed to load sound: ${soundName}`, error);
-      // Try to load a fallback sound if the primary one fails
-      if (soundName === 'pop') {
-        console.log('Attempting to load fallback pop sound...');
-        return loadSound('chain');
-      }
-      return null;
+    sounds.forEach(sound => {
+        const audio = new Audio(`/sounds/${sound.name}.mp3`);
+        audio.loop = sound.loop;
+        audio.volume = 1.0;
+        console.log(`Loading sound: ${sound.name}.mp3`);
+        
+        audio.addEventListener('play', () => console.log(`${sound.name} started playing`));
+        audio.addEventListener('error', (e) => console.error(`Error loading ${sound.name}:`, e));
+        
+        audioElements.set(sound.name, {
+            audio,
+            category: sound.category
+        });
+    });
+
+    isInitialized = true;
+    console.log('Sound initialization complete');
+}
+
+// Play a sound
+export function playSound(soundName, shouldLoop = false) {
+    console.log(`Attempting to play sound: ${soundName}, loop: ${shouldLoop}`);
+    const audioInfo = audioElements.get(soundName);
+    if (audioInfo) {
+        const { audio, category } = audioInfo;
+        
+        // Check if the sound's category is muted
+        if (muteState[category]) {
+            console.log(`${category} is muted, not playing ${soundName}`);
+            return;
+        }
+
+        // Stop any currently playing sounds in the same category
+        stopSoundsInCategory(category);
+
+        audio.loop = shouldLoop;
+        audio.currentTime = 0;
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => console.log(`Successfully playing ${soundName}`))
+                .catch(error => {
+                    console.error(`Failed to play ${soundName}:`, error);
+                    if (error.name === 'NotAllowedError') {
+                        console.log('Autoplay prevented. User interaction required.');
+                    }
+                });
+        }
+    } else {
+        console.warn(`Sound ${soundName} not found`);
     }
-  }
-  return soundCache.get(soundName);
-};
+}
 
-// Initialize sounds after user interaction with better error handling
-export const initSounds = async () => {
-  try {
-    initAudioContext();
-    // Preload all sounds
-    await Promise.all(Object.keys(SOUND_URLS).map(loadSound));
-    console.log('All sounds initialized successfully');
-  } catch (error) {
-    console.error('Error initializing sounds:', error);
-  }
-};
+// Stop all sounds in a specific category
+function stopSoundsInCategory(category) {
+    console.log(`Stopping all sounds in category: ${category}`);
+    audioElements.forEach(({ audio, category: soundCategory }) => {
+        if (soundCategory === category) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    });
+}
 
-export const playSound = async (soundName) => {
-  if (!audioContext) {
-    initAudioContext();
-  }
+// Stop all sounds
+export function stopAllSounds() {
+    console.log('Stopping all sounds');
+    audioElements.forEach(({ audio }) => {
+        audio.pause();
+        audio.currentTime = 0;
+    });
+}
 
-  try {
-    const buffer = await loadSound(soundName);
-    if (buffer && audioContext) {
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      const gainNode = audioContext.createGain();
-      gainNode.gain.value = 0.7; // 70% volume
-      source.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      source.start(0);
+// Toggle mute for a specific category
+export function toggleMute(category) {
+    console.log(`Toggling mute for ${category}`);
+    if (category in muteState) {
+        muteState[category] = !muteState[category];
+        
+        // If muting, stop all sounds in that category
+        if (muteState[category]) {
+            stopSoundsInCategory(category);
+        }
+        
+        return muteState[category];
     }
-  } catch (error) {
-    console.error('Error playing sound:', error);
-  }
-};
+    return false;
+}
 
-export default SOUND_URLS;
+// Get mute state for a category
+export function isMuted(category) {
+    return muteState[category] || false;
+}
+
+// Initialize sounds when the module loads
+initSounds();

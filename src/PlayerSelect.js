@@ -1,5 +1,6 @@
 import * as BABYLON from '@babylonjs/core';
 import * as GUI from '@babylonjs/gui';
+import { playSound, stopAllSounds, toggleMute, isMuted } from './utils/sounds';
 
 export class PlayerSelect {
     constructor(canvas, onPlayerSelected) {
@@ -56,6 +57,19 @@ export class PlayerSelect {
         window.addEventListener('resize', () => {
             this.engine.resize();
         });
+
+        // Add a one-time click handler to start music after user interaction
+        const startIntroMusic = () => {
+            if (!isMuted('music')) {
+                stopAllSounds();
+                playSound('intro-song', true);
+            }
+            this.canvas.removeEventListener('click', startIntroMusic);
+            this.canvas.removeEventListener('touchstart', startIntroMusic);
+        };
+
+        this.canvas.addEventListener('click', startIntroMusic);
+        this.canvas.addEventListener('touchstart', startIntroMusic);
     }
 
     setupBackgroundPreview() {
@@ -107,10 +121,8 @@ export class PlayerSelect {
         const mainContainer = new GUI.Rectangle("mainContainer");
         mainContainer.width = "1000px";
         mainContainer.height = "800px";
-        mainContainer.thickness = 2;
-        mainContainer.color = "yellow";
-        mainContainer.cornerRadius = 30;
-        mainContainer.background = "rgba(255, 255, 255, 0.1)";
+        mainContainer.thickness = 0;
+        mainContainer.background = "transparent";
         mainContainer.horizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
         mainContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_CENTER;
         mainContainer.zIndex = 1;
@@ -281,6 +293,12 @@ export class PlayerSelect {
         button.onPointerClickObservable.add(() => {
             console.log(`${name}'s button clicked!`);
             if (this.onPlayerSelected) {
+                // Stop current music and play character-specific song
+                stopAllSounds();
+                const songName = name.toLowerCase() === 'madison' ? 'madi-song' : name.toLowerCase() + '-song';
+                console.log('Playing song:', songName);
+                playSound(songName);
+                
                 console.log(`Calling onPlayerSelected with ${name.toLowerCase()}`);
                 this.onPlayerSelected(name.toLowerCase());
             } else {
@@ -363,6 +381,9 @@ export class PlayerSelect {
     }
 
     dispose() {
+        // Stop music when disposing
+        stopAllSounds();
+        
         if (this.scene) {
             this.scene.dispose();
         }
