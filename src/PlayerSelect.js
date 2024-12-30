@@ -103,7 +103,7 @@ export class PlayerSelect {
 
         // Create title text
         const titleText = new GUI.TextBlock("titleText");
-        titleText.text = "Choose Your Player!";
+        titleText.text = "James' and Madison's Bubble Adventure Game!";
         titleText.color = "white";
         titleText.fontSize = 48;
         titleText.fontFamily = "Comic Sans MS";

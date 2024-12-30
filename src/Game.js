@@ -4,81 +4,12 @@ import '@babylonjs/loaders';
 import '@babylonjs/inspector';
 import { playSound, initSounds } from './utils/sounds';
 import { CelebrationScreen } from './CelebrationScreen';
-
-// Game constants
-const GAME_CONFIG = {
-    GRID: {
-        ROWS: 8,
-        COLS: 10,
-        BUBBLE_SIZE: 0.8,
-        SPACING: 0.2
-    },
-    VIEWPORT: {
-        HEIGHT: 12,
-        ASPECT_RATIO: 1.33
-    },
-    POWERUPS: {
-        UNICORN: {
-            CHANCE: 0.05,  // 5% chance for unicorn bubble
-            TEXTURE: "textures/unicorn.png"
-        },
-        SUPERHERO: {
-            CHANCE: 0.05,  // 5% chance for superhero bubble
-            TEXTURE: "textures/superhero.png",
-            RADIUS: 3      // Affects bubbles within 3 spaces
-        },
-        PRINCESS: {
-            CHANCE: 0.05,  // 5% chance for princess bubble
-            TEXTURE: "textures/princess.png",
-            RADIUS: 4      // Heart-shaped blast radius
-        },
-        PRINCE: {
-            CHANCE: 0.05,  // 5% chance for prince bubble
-            TEXTURE: "textures/prince.png",
-            RADIUS: 3      // Crown-shaped blast radius
-        }
-    },
-    SCORING: {
-        BASE_SCORE: 10,
-        POWERUP_MULTIPLIER: 2,
-        CLUSTER_MULTIPLIER: 1.5
-    }
-};
-
-const GAME_STATES = {
-    INIT: 'init',
-    PLAYING: 'playing',
-    PAUSED: 'paused',
-    GAME_OVER: 'gameOver'
-};
-
-const BUBBLE_TYPES = {
-    NORMAL: 'normal',
-    UNICORN: 'unicorn',    // Rainbow magic that clears all bubbles of one color
-    SUPERHERO: 'superhero', // Super blast that clears bubbles in a big area
-    PRINCESS: 'princess',   // Creates a magical heart-shaped blast that clears bubbles
-    PRINCE: 'prince'       // Creates a crown-shaped blast that turns nearby bubbles to gold
-};
-
-const LEVEL_REQUIREMENTS = {
-    1: { target: 100, moves: 20 },
-    2: { target: 250, moves: 18 },
-    3: { target: 500, moves: 15 }
-};
-
-const colors = [
-    new BABYLON.Color3(1, 0.4, 0.4),    // Soft Red
-    new BABYLON.Color3(0.4, 0.6, 1),    // Sky Blue
-    new BABYLON.Color3(0.5, 0.9, 0.4),  // Bright Green
-    new BABYLON.Color3(1, 0.8, 0.2),    // Sunny Yellow
-    new BABYLON.Color3(0.9, 0.5, 1),    // Soft Purple
-    new BABYLON.Color3(0.4, 0.9, 0.9)   // Turquoise
-];
+import { colors, GAME_CONFIG, GAME_STATES, BUBBLE_TYPES, LEVEL_REQUIREMENTS } from './config';
 
 export class BubblePopGame {
     constructor(canvas, playerName) {
         this.canvas = canvas;
-        this.playerName = playerName;
+        this.playerName = playerName.charAt(0).toUpperCase() + playerName.slice(1).toLowerCase();
         this.engine = null;
         this.scene = null;
         this.camera = null;
@@ -90,7 +21,7 @@ export class BubblePopGame {
             grid: this.createEmptyGrid(),
             isMuted: false,
             isProcessingMatch: false,
-            playerName: playerName
+            playerName: playerName.charAt(0).toUpperCase() + playerName.slice(1).toLowerCase()
         };
         this.gui = null;
         this.scoreText = null;
@@ -133,10 +64,10 @@ export class BubblePopGame {
         // Initialize sounds
         await initSounds();
 
-        // Create bubble grid first
+        // Create bubble grid
         this.createBubbleGrid();
 
-        // Create background last (so it's behind everything)
+        // Create background
         await this.setupBackground();
 
         // Start game loop
@@ -154,43 +85,13 @@ export class BubblePopGame {
         this.gameState.state = GAME_STATES.PLAYING;
     }
 
-    async setupBackground() {
-        // Create a background plane that fills the view
-        const backgroundPlane = BABYLON.MeshBuilder.CreatePlane("backgroundPlane", {
-            width: 20,
-            height: 12
-        }, this.scene);
-
-        // Position it behind everything
-        backgroundPlane.position.z = -5;
-
-        // Create material for the background
-        const backgroundMaterial = new BABYLON.StandardMaterial("backgroundMaterial", this.scene);
-        
-        // Load the appropriate background texture
-        const backgroundTexture = new BABYLON.Texture(
-            this.playerName.toLowerCase() === "madison" 
-                ? "/images/princess.webp" 
-                : "/images/marvel.webp",
-            this.scene
-        );
-        
-        // Configure the material
-        backgroundMaterial.diffuseTexture = backgroundTexture;
-        backgroundMaterial.specularColor = BABYLON.Color3.Black();
-        backgroundMaterial.backFaceCulling = false;
-        
-        // Apply the material to the plane
-        backgroundPlane.material = backgroundMaterial;
-    }
-
     setupCamera() {
         // Create a perspective camera
         this.camera = new BABYLON.ArcRotateCamera(
             "camera",
             Math.PI / 2,     // Alpha (horizontal rotation) - 90 degrees
             Math.PI / 2,     // Beta (vertical rotation) - 90 degrees
-            20,             // Radius (distance)
+            30,             // Increased radius to see more of the scene
             new BABYLON.Vector3(0, 0, 0),
             this.scene
         );
@@ -201,6 +102,52 @@ export class BubblePopGame {
         
         // Disable camera controls
         this.camera.inputs.clear();
+    }
+
+    async setupBackground() {
+        // Create a plane that fills the entire view
+        const backgroundPlane = BABYLON.MeshBuilder.CreatePlane("backgroundPlane", {
+            width: 60,    // Increased width further
+            height: 35,   // Increased height further
+            sideOrientation: BABYLON.Mesh.DOUBLESIDE
+        }, this.scene);
+
+        // Position the plane further back and slightly down
+        backgroundPlane.position = new BABYLON.Vector3(0, -2, -15);
+
+        // Create and setup the material
+        const backgroundMaterial = new BABYLON.StandardMaterial("backgroundMaterial", this.scene);
+        
+        // Load the appropriate background texture with the correct path
+        const imagePath = this.playerName.toLowerCase() === "madison" 
+            ? "/images/princess.webp" 
+            : "/images/marvel.webp";
+            
+        console.log("Loading background image from:", imagePath);
+        
+        const texture = new BABYLON.Texture(imagePath, this.scene);
+        
+        // Force texture to stretch and fill
+        texture.onLoadObservable.add(() => {
+            console.log("Background texture loaded successfully");
+            texture.uScale = 1;
+            texture.vScale = 1;
+        });
+
+        // Set texture properties to prevent any wrapping
+        texture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+        texture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+
+        backgroundMaterial.diffuseTexture = texture;
+
+        // Make sure the background is bright enough and fully visible
+        backgroundMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1);
+        backgroundMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+        backgroundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        backgroundMaterial.disableLighting = true;
+
+        // Apply the material to the plane
+        backgroundPlane.material = backgroundMaterial;
     }
 
     setupLighting() {
@@ -243,11 +190,11 @@ export class BubblePopGame {
         this.movesText = new GUI.TextBlock();
         this.movesText.text = `Moves: ${this.gameState.movesLeft}`;
         this.movesText.color = "white";
-        this.movesText.fontSize = 24;
+        this.movesText.fontSize = 50;
         this.movesText.textHorizontalAlignment = GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
         this.movesText.textVerticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_TOP;
-        this.movesText.top = "20px";
-        this.movesText.right = "20px";
+        this.movesText.top = "50px";
+        this.movesText.right = "50px";
         this.movesText.zIndex = -1;  // Put text behind bubbles
         this.gui.addControl(this.movesText);
     }
@@ -270,7 +217,7 @@ export class BubblePopGame {
         const startY = totalHeight / 2 - bubbleSize / 2;
         
         const x = startX + col * (bubbleSize + spacing);
-        const y = isNew ? startY + bubbleSize * 2 : startY - row * (bubbleSize + spacing);
+        const y = startY - row * (bubbleSize + spacing);
         
         // Create bubble mesh with more segments for smoother look
         const bubble = BABYLON.MeshBuilder.CreateSphere(
@@ -294,27 +241,34 @@ export class BubblePopGame {
         material.alpha = 1.0;
         material.backFaceCulling = false;
 
-        // Add click handler
-        bubble.actionManager = new BABYLON.ActionManager(this.scene);
-        bubble.actionManager.registerAction(
-            new BABYLON.ExecuteCodeAction(
-                BABYLON.ActionManager.OnPickTrigger,
-                () => this.handleBubbleClick(row, col)
-            )
-        );
-
         // Assign material and store bubble data
         bubble.material = material;
         bubble.isPickable = true;
 
-        // Store bubble data
+        // Store bubble data with explicit position reference
         this.gameState.grid[row][col] = {
             mesh: bubble,
             color: colorIndex,
             type: BUBBLE_TYPES.NORMAL,
             isPopped: false,
-            gridPosition: { row, col }
+            gridPosition: { row, col },
+            worldPosition: { x, y, z: 0 }
         };
+
+        // Add click handler with position check
+        bubble.actionManager = new BABYLON.ActionManager(this.scene);
+        bubble.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                BABYLON.ActionManager.OnPickTrigger,
+                () => {
+                    // Double check the position matches before handling click
+                    const clickedBubble = this.gameState.grid[row][col];
+                    if (clickedBubble && clickedBubble.mesh === bubble) {
+                        this.handleBubbleClick(row, col);
+                    }
+                }
+            )
+        );
 
         return this.gameState.grid[row][col];
     }
@@ -427,198 +381,148 @@ export class BubblePopGame {
     }
 
     handleBubbleClick(row, col) {
-        console.log(`Clicked bubble at row: ${row}, col: ${col}`);
-        
-        // Prevent processing clicks while handling a match
-        if (this.gameState.isProcessingMatch) {
-            console.log('Already processing a match, ignoring click');
+        // Ignore clicks if game is not in playing state or is processing a match
+        if (this.gameState.state !== GAME_STATES.PLAYING || this.gameState.isProcessingMatch) {
             return;
         }
 
-        if (this.gameState.state !== GAME_STATES.PLAYING) {
-            console.log('Game not in playing state');
-            return;
-        }
-        
-        if (this.gameState.movesLeft <= 0) {
-            console.log('No moves left');
-            return;
-        }
-
+        // Get the clicked bubble
         const clickedBubble = this.gameState.grid[row][col];
-        if (!clickedBubble || clickedBubble.isPopped || this.disposedMeshes.has(clickedBubble.mesh)) {
-            console.log('Invalid bubble or already popped');
+        if (!clickedBubble || clickedBubble.isPopped) {
             return;
         }
 
-        let matchingBubbles = [];
+        // Find matching bubbles
+        const matches = this.findMatches(row, col);
         
-        if (clickedBubble.type === BUBBLE_TYPES.UNICORN) {
-            // Unicorn power: Pop all bubbles of a random color
-            const randomColor = Math.floor(Math.random() * colors.length);
-            matchingBubbles = this.findAllBubblesOfColor(randomColor);
-            this.showUnicornEffect(clickedBubble);
-        } else if (clickedBubble.type === BUBBLE_TYPES.SUPERHERO) {
-            // Superhero power: Pop bubbles in a large radius
-            matchingBubbles = this.findBubblesInRadius(row, col, GAME_CONFIG.POWERUPS.SUPERHERO.RADIUS);
-            this.showSuperheroEffect(clickedBubble);
-        } else if (clickedBubble.type === BUBBLE_TYPES.PRINCESS) {
-            // Princess effect: Heart-shaped blast
-            matchingBubbles = this.findBubblesInHeartShape(row, col, GAME_CONFIG.POWERUPS.PRINCESS.RADIUS);
-            this.showPrincessEffect(clickedBubble);
-        } else if (clickedBubble.type === BUBBLE_TYPES.PRINCE) {
-            // Prince effect: Crown-shaped blast that turns bubbles golden
-            matchingBubbles = this.findBubblesInCrownShape(row, col, GAME_CONFIG.POWERUPS.PRINCE.RADIUS);
-            this.showPrinceEffect(clickedBubble);
-        } else {
-            // Normal bubble matching
-            matchingBubbles = this.findMatchingBubbles(row, col);
-        }
-
-        if (matchingBubbles.length >= 3 || clickedBubble.type !== BUBBLE_TYPES.NORMAL) {
-            this.gameState.isProcessingMatch = true; // Set processing flag
-
-            // Create a map of bubbles to pop for quick lookup
-            const bubblePositions = new Set(
-                matchingBubbles.map(b => `${b.gridPosition.row},${b.gridPosition.col}`)
-            );
+        // Only process if we have enough matches
+        if (matches.length >= 2) {
+            this.gameState.isProcessingMatch = true;
             
-            // Immediately disable all matching bubbles
-            matchingBubbles.forEach(bubble => {
-                if (bubble && bubble.mesh && !this.disposedMeshes.has(bubble.mesh)) {
-                    bubble.isPopped = true;
-                    bubble.mesh.isPickable = false;
-                    // Add a visual indicator that this bubble is part of a match
-                    bubble.mesh.material.emissiveColor = bubble.mesh.material.diffuseColor.scale(0.7);
+            // Pop all matching bubbles with animation and sound
+            matches.forEach(bubble => {
+                if (bubble && !bubble.isPopped && bubble.mesh) {
+                    this.popBubble(bubble);
                 }
             });
 
-            // Calculate score
-            const points = matchingBubbles.length * GAME_CONFIG.SCORING.BASE_SCORE;
-            this.gameState.score += points;
+            // Update score and moves
+            this.updateScore(matches.length);
             this.gameState.movesLeft--;
-            
-            // Update UI immediately
-            this.updateUI();
-            
-            // Pop all matching bubbles with a slight delay between each
-            let popDelay = 0;
-            const popPromises = matchingBubbles.map((bubble) => {
-                return new Promise((resolve) => {
-                    if (bubble && bubble.mesh && !this.disposedMeshes.has(bubble.mesh)) {
-                        setTimeout(() => {
-                            if (bubble && 
-                                bubble.mesh && 
-                                !this.disposedMeshes.has(bubble.mesh) && 
-                                bubblePositions.has(`${bubble.gridPosition.row},${bubble.gridPosition.col}`)) {
-                                this.popBubble(bubble);
-                            }
-                            resolve();
-                        }, popDelay);
-                        popDelay += 50;
-                    } else {
-                        resolve();
-                    }
-                });
-            });
+            this.updateMovesText();
 
-            // Wait for all pops to complete before applying gravity
-            Promise.all(popPromises).then(() => {
-                setTimeout(() => {
-                    if (this.scene && !this.scene.isDisposed) {
-                        this.applyGravity();
-                    }
-                    this.gameState.isProcessingMatch = false; // Clear processing flag
-                }, 300);
-            });
-        } else {
-            // If no match, provide visual feedback
-            if (clickedBubble && clickedBubble.mesh && !this.disposedMeshes.has(clickedBubble.mesh)) {
-                // Create a quick scale animation to show the bubble was clicked
-                const quickPulse = new BABYLON.Animation(
-                    "quickPulse",
-                    "scaling",
-                    60,
-                    BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
-                    BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
-                );
+            // Apply gravity after a short delay to let pop animations complete
+            setTimeout(() => {
+                this.applyGravity();
+                this.gameState.isProcessingMatch = false;
+            }, 300);
 
-                const pulseKeys = [];
-                pulseKeys.push({
-                    frame: 0,
-                    value: clickedBubble.mesh.scaling.clone()
-                });
-                pulseKeys.push({
-                    frame: 6,
-                    value: clickedBubble.mesh.scaling.clone().scaleInPlace(1.2)
-                });
-                pulseKeys.push({
-                    frame: 12,
-                    value: clickedBubble.mesh.scaling.clone()
-                });
-
-                quickPulse.setKeys(pulseKeys);
-                clickedBubble.mesh.animations = [quickPulse];
-                this.scene.beginAnimation(clickedBubble.mesh, 0, 12, false);
+            // Check for game over conditions
+            if (this.gameState.movesLeft <= 0) {
+                this.endGame();
             }
         }
     }
 
-    findMatchingBubbles(row, col) {
+    findMatches(row, col) {
         const clickedBubble = this.gameState.grid[row][col];
-        if (!clickedBubble || !clickedBubble.mesh || clickedBubble.mesh._isDisposed || clickedBubble.isPopped) {
+        if (!clickedBubble || !clickedBubble.mesh || clickedBubble.isPopped) {
             console.log('Invalid bubble for matching');
             return [];
         }
 
-        const matchingBubbles = [];
-        const visited = Array(GAME_CONFIG.GRID.ROWS).fill().map(() => 
-            Array(GAME_CONFIG.GRID.COLS).fill(false)
-        );
+        const matches = new Set(); // Use Set to avoid duplicates
+        matches.add(clickedBubble);
 
-        const checkBubble = (r, c) => {
-            // Check bounds and visited state
-            if (r < 0 || r >= GAME_CONFIG.GRID.ROWS || 
-                c < 0 || c >= GAME_CONFIG.GRID.COLS || 
-                visited[r][c]) {
-                return;
+        // Check horizontal matches
+        const checkHorizontal = () => {
+            // Check left
+            let c = col - 1;
+            while (c >= 0) {
+                const bubble = this.gameState.grid[row][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                c--;
             }
-
-            visited[r][c] = true;
-            const bubble = this.gameState.grid[r][c];
-            
-            // Validate bubble state and position
-            if (!bubble || 
-                !bubble.mesh || 
-                bubble.mesh._isDisposed || 
-                bubble.isPopped ||
-                bubble.color !== clickedBubble.color ||
-                bubble.gridPosition.row !== r ||
-                bubble.gridPosition.col !== c) {
-                return;
+            // Check right
+            c = col + 1;
+            while (c < GAME_CONFIG.GRID.COLS) {
+                const bubble = this.gameState.grid[row][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                c++;
             }
-
-            // Valid matching bubble found
-            console.log(`Found matching bubble at row: ${r}, col: ${c}, color: ${bubble.color}`);
-            matchingBubbles.push(bubble);
-
-            // Only check orthogonal neighbors (no diagonals)
-            checkBubble(r - 1, c); // Up
-            checkBubble(r + 1, c); // Down
-            checkBubble(r, c - 1); // Left
-            checkBubble(r, c + 1); // Right
         };
 
-        // Start the recursive check from the clicked bubble
-        checkBubble(row, col);
+        // Check vertical matches
+        const checkVertical = () => {
+            // Check up
+            let r = row - 1;
+            while (r >= 0) {
+                const bubble = this.gameState.grid[r][col];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r--;
+            }
+            // Check down
+            r = row + 1;
+            while (r < GAME_CONFIG.GRID.ROWS) {
+                const bubble = this.gameState.grid[r][col];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r++;
+            }
+        };
 
-        // Log the final matches for debugging
-        if (matchingBubbles.length > 0) {
-            console.log('Final matches:', matchingBubbles.map(b => 
-                `(${b.gridPosition.row},${b.gridPosition.col})`).join(', '));
-        }
+        // Check diagonal matches (top-left to bottom-right)
+        const checkDiagonal1 = () => {
+            // Check up-left
+            let r = row - 1, c = col - 1;
+            while (r >= 0 && c >= 0) {
+                const bubble = this.gameState.grid[r][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r--; c--;
+            }
+            // Check down-right
+            r = row + 1; c = col + 1;
+            while (r < GAME_CONFIG.GRID.ROWS && c < GAME_CONFIG.GRID.COLS) {
+                const bubble = this.gameState.grid[r][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r++; c++;
+            }
+        };
 
-        return matchingBubbles;
+        // Check diagonal matches (top-right to bottom-left)
+        const checkDiagonal2 = () => {
+            // Check up-right
+            let r = row - 1, c = col + 1;
+            while (r >= 0 && c < GAME_CONFIG.GRID.COLS) {
+                const bubble = this.gameState.grid[r][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r--; c++;
+            }
+            // Check down-left
+            r = row + 1; c = col - 1;
+            while (r < GAME_CONFIG.GRID.ROWS && c >= 0) {
+                const bubble = this.gameState.grid[r][c];
+                if (!bubble || bubble.isPopped || bubble.color !== clickedBubble.color) break;
+                matches.add(bubble);
+                r++; c--;
+            }
+        };
+
+        // Check all directions
+        checkHorizontal();
+        checkVertical();
+        checkDiagonal1();
+        checkDiagonal2();
+
+        const matchArray = Array.from(matches);
+        console.log(`Found ${matchArray.length} matches for bubble at (${row},${col})`);
+        return matchArray;
     }
 
     popBubble(bubble) {
@@ -804,91 +708,99 @@ export class BubblePopGame {
     }
 
     applyGravity() {
-        console.log('Applying gravity');
-        const rows = GAME_CONFIG.GRID.ROWS;
-        const cols = GAME_CONFIG.GRID.COLS;
-        let moved = false;
+        let hasBubblesFallen = false;
 
-        // Create a new grid to track movements
-        const newGrid = this.createEmptyGrid();
-        const animationPromises = [];
-
-        // Move bubbles down column by column
-        for (let col = 0; col < cols; col++) {
-            let emptyRow = rows - 1;
-            for (let row = rows - 1; row >= 0; row--) {
+        // Start from the second-to-last row and move up
+        for (let row = GAME_CONFIG.GRID.ROWS - 2; row >= 0; row--) {
+            for (let col = 0; col < GAME_CONFIG.GRID.COLS; col++) {
                 const bubble = this.gameState.grid[row][col];
-                if (bubble && !bubble.isPopped && !this.disposedMeshes.has(bubble.mesh)) {
-                    if (emptyRow !== row) {
-                        console.log(`Moving bubble from (${row},${col}) to (${emptyRow},${col})`);
-                        // Update bubble's grid position
-                        bubble.gridPosition = { row: emptyRow, col };
-                        // Place bubble in new grid at new position
-                        newGrid[emptyRow][col] = bubble;
-                        moved = true;
+                if (bubble && !bubble.isPopped) {
+                    // Check if there's an empty space below
+                    let targetRow = row;
+                    while (targetRow + 1 < GAME_CONFIG.GRID.ROWS && !this.gameState.grid[targetRow + 1][col]) {
+                        targetRow++;
+                    }
 
-                        // Animate the bubble to its new position
+                    // If bubble needs to fall
+                    if (targetRow !== row) {
+                        hasBubblesFallen = true;
+                        // Update grid
+                        this.gameState.grid[targetRow][col] = bubble;
+                        this.gameState.grid[row][col] = null;
+                        
+                        // Update bubble position
                         const bubbleSize = GAME_CONFIG.GRID.BUBBLE_SIZE;
                         const spacing = GAME_CONFIG.GRID.SPACING;
-                        const totalWidth = cols * (bubbleSize + spacing);
-                        const totalHeight = rows * (bubbleSize + spacing);
-                        const startX = -totalWidth / 2 + bubbleSize / 2;
+                        const totalHeight = GAME_CONFIG.GRID.ROWS * (bubbleSize + spacing);
                         const startY = totalHeight / 2 - bubbleSize / 2;
-                        const targetY = startY - emptyRow * (bubbleSize + spacing);
-                        const targetX = startX + col * (bubbleSize + spacing);
-
-                        const fallAnimation = new BABYLON.Animation(
+                        const newY = startY - targetRow * (bubbleSize + spacing);
+                        
+                        // Create animation for falling
+                        const animation = new BABYLON.Animation(
                             "fallAnimation",
-                            "position",
+                            "position.y",
                             60,
-                            BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
+                            BABYLON.Animation.ANIMATIONTYPE_FLOAT,
                             BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
                         );
 
                         const keys = [];
-                        keys.push({
-                            frame: 0,
-                            value: bubble.mesh.position.clone()
-                        });
-                        keys.push({
-                            frame: 30,
-                            value: new BABYLON.Vector3(targetX, targetY, 0)
-                        });
+                        keys.push({ frame: 0, value: bubble.mesh.position.y });
+                        keys.push({ frame: 30, value: newY });
 
-                        fallAnimation.setKeys(keys);
-                        bubble.mesh.animations = [fallAnimation];
+                        animation.setKeys(keys);
+
+                        // Add easing function
+                        const easingFunction = new BABYLON.BackEase();
+                        easingFunction.setEasingMode(BABYLON.EasingFunction.EASINGMODE_EASEOUT);
+                        animation.setEasingFunction(easingFunction);
+
+                        bubble.mesh.animations = [animation];
+                        this.scene.beginAnimation(bubble.mesh, 0, 30, false);
                         
-                        // Create a promise for this animation
-                        const animationPromise = new Promise((resolve) => {
-                            this.scene.beginAnimation(bubble.mesh, 0, 30, false, 1, resolve);
-                        });
-                        animationPromises.push(animationPromise);
-                    } else {
-                        // Keep bubble in same position in new grid
-                        newGrid[row][col] = bubble;
+                        // Update bubble's grid position and click handler
+                        bubble.gridPosition.row = targetRow;
+                        bubble.gridPosition.col = col;
+
+                        // Update click handler
+                        if (bubble.mesh.actionManager) {
+                            bubble.mesh.actionManager.dispose();
+                        }
+                        bubble.mesh.actionManager = new BABYLON.ActionManager(this.scene);
+                        bubble.mesh.actionManager.registerAction(
+                            new BABYLON.ExecuteCodeAction(
+                                BABYLON.ActionManager.OnPickTrigger,
+                                () => this.handleBubbleClick(targetRow, col)
+                            )
+                        );
                     }
-                    emptyRow--;
                 }
             }
         }
 
-        // Update the game state grid with the new grid
-        this.gameState.grid = newGrid;
-
-        // Wait for all animations to complete before filling empty spaces
-        if (moved) {
-            Promise.all(animationPromises).then(() => {
-                console.log('All gravity animations complete, filling empty spaces');
-                this.fillEmptySpaces();
-            });
-        } else {
-            // If no bubbles moved, still check if we need to fill spaces
-            const hasEmptySpaces = this.gameState.grid.some(row => 
-                row.some(cell => cell === null)
-            );
-            if (hasEmptySpaces) {
-                console.log('No movement but found empty spaces, filling them');
-                this.fillEmptySpaces();
+        // Fill empty spaces at the top with new bubbles
+        if (hasBubblesFallen) {
+            for (let col = 0; col < GAME_CONFIG.GRID.COLS; col++) {
+                let row = 0;
+                while (row < GAME_CONFIG.GRID.ROWS && !this.gameState.grid[row][col]) {
+                    const newBubble = this.createBubble(row, col, true);
+                    // Ensure the new bubble has the correct grid position
+                    if (newBubble) {
+                        newBubble.gridPosition = { row, col };
+                        // Update click handler for new bubble
+                        if (newBubble.mesh.actionManager) {
+                            newBubble.mesh.actionManager.dispose();
+                        }
+                        newBubble.mesh.actionManager = new BABYLON.ActionManager(this.scene);
+                        newBubble.mesh.actionManager.registerAction(
+                            new BABYLON.ExecuteCodeAction(
+                                BABYLON.ActionManager.OnPickTrigger,
+                                () => this.handleBubbleClick(row, col)
+                            )
+                        );
+                    }
+                    row++;
+                }
             }
         }
     }
@@ -1482,5 +1394,221 @@ export class BubblePopGame {
         
         console.log(`Found ${bubbles.length} bubbles of color ${targetColor}`);
         return bubbles;
+    }
+
+    updateScore(matchCount) {
+        // Calculate points based on match count
+        const points = matchCount * 10;  // 10 points per bubble
+        this.gameState.score += points;
+        
+        // Update score display
+        if (this.scoreText) {
+            this.scoreText.text = `Score: ${this.gameState.score}`;
+        }
+    }
+
+    updateMovesText() {
+        if (this.movesText) {
+            this.movesText.text = `Moves: ${this.gameState.movesLeft}`;
+        }
+    }
+
+    endGame() {
+        this.gameState.state = GAME_STATES.GAME_OVER;
+        
+        // Create celebration UI
+        const guiTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("celebrationUI");
+
+        
+
+        // Add semi-transparent overlay
+        const overlay = new GUI.Rectangle("overlay");
+        overlay.width = 1;
+        overlay.height = 1;
+        overlay.thickness = 0;
+        overlay.background = "black";
+        overlay.alpha = 0.5;
+        guiTexture.addControl(overlay);
+
+        // Create a main container for vertical layout
+        const mainContainer = new GUI.Rectangle("mainContainer");
+        mainContainer.width = "800px";
+        mainContainer.height = "600px";
+        mainContainer.thickness = 0;
+        mainContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+        guiTexture.addControl(mainContainer);
+
+        // Create a stack panel for text elements
+        const textContainer = new GUI.StackPanel("textContainer");
+        textContainer.width = "100%";
+        textContainer.height = "100%";
+        textContainer.spacing = 40;  // Increased spacing between elements
+        textContainer.paddingTop = "50px";
+        mainContainer.addControl(textContainer);
+
+        // Add congratulations text
+        const congratsText = new GUI.TextBlock();
+        congratsText.text = "🎉 AMAZING JOB! 🎉";
+        congratsText.color = "white";
+        congratsText.fontSize = 72;
+        congratsText.height = "100px";
+        congratsText.fontFamily = "Comic Sans MS";
+        congratsText.shadowColor = "black";
+        congratsText.shadowBlur = 10;
+        congratsText.outlineWidth = 4;
+        congratsText.outlineColor = "purple";
+        textContainer.addControl(congratsText);
+
+        // Add player name
+        const playerText = new GUI.TextBlock();
+        playerText.text = `Way to go, ${this.playerName}!`;
+        playerText.color = "#FFD700";
+        playerText.fontSize = 48;
+        playerText.height = "80px";
+        playerText.fontFamily = "Comic Sans MS";
+        playerText.shadowColor = "black";
+        playerText.shadowBlur = 5;
+        playerText.outlineWidth = 2;
+        playerText.outlineColor = "#FF69B4";
+        textContainer.addControl(playerText);
+
+        // Add score with stars
+        const scoreText = new GUI.TextBlock();
+        scoreText.text = `⭐ Score: ${this.gameState.score} ⭐`;
+        scoreText.color = "white";
+        scoreText.fontSize = 54;
+        scoreText.height = "80px";
+        scoreText.fontFamily = "Comic Sans MS";
+        scoreText.shadowColor = "black";
+        scoreText.shadowBlur = 5;
+        textContainer.addControl(scoreText);
+
+        // Add fun emojis
+        const emojiText = new GUI.TextBlock();
+        emojiText.text = "🦄 🌟 👑 ✨ 🎈 🎨";
+        emojiText.fontSize = 48;
+        emojiText.height = "80px";
+        textContainer.addControl(emojiText);
+
+        // Add spacer
+        const spacer = new GUI.Rectangle();
+        spacer.height = "40px";
+        spacer.thickness = 0;
+        textContainer.addControl(spacer);
+
+        // Create button container at the bottom of the screen
+        const buttonContainer = new GUI.Rectangle();
+        buttonContainer.width = 1;
+        buttonContainer.height = "150px";
+        buttonContainer.thickness = 0;
+        buttonContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        buttonContainer.top = "-100px";
+        guiTexture.addControl(buttonContainer);  // Add to main guiTexture, not textContainer
+
+        // Add "Play Again" button
+        const playAgainBtn = new GUI.Button("playAgain");
+        playAgainBtn.width = "300px";
+        playAgainBtn.height = "80px";
+        playAgainBtn.color = "white";
+        playAgainBtn.cornerRadius = 20;
+        playAgainBtn.background = "#4CAF50";
+        playAgainBtn.thickness = 4;
+        buttonContainer.addControl(playAgainBtn);
+
+        // Create text block for button
+        const buttonText = new GUI.TextBlock();
+        buttonText.text = "Play Again! 🎮";
+        buttonText.color = "white";
+        buttonText.fontSize = 36;
+        buttonText.fontFamily = "Comic Sans MS";
+        playAgainBtn.addControl(buttonText);
+
+        // Add hover effect
+        playAgainBtn.onPointerEnterObservable.add(() => {
+            playAgainBtn.background = "#45a049";
+        });
+        playAgainBtn.onPointerOutObservable.add(() => {
+            playAgainBtn.background = "#4CAF50";
+        });
+
+        playAgainBtn.onPointerUpObservable.add(() => {
+            // Clean up current game state
+            this.scene.dispose();
+            guiTexture.dispose();
+            
+            // Dispose of all particle systems
+            this.scene.particleSystems.forEach(system => {
+                system.dispose();
+            });
+            
+            // Clear any remaining animations
+            this.scene.stopAllAnimations();
+            
+            // Call onGameOver with a special flag to indicate returning to player select
+            if (this.onGameOver) {
+                this.onGameOver(this.gameState.score, true);  // true indicates return to player select
+            }
+        });
+
+        // Create celebration particles
+        this.createCelebrationParticles();
+
+        // Animate the congratulations text
+        let time = 0;
+        this.scene.registerBeforeRender(() => {
+            time += 0.05;
+            congratsText.scaling = new BABYLON.Vector2(
+                1 + Math.sin(time) * 0.05,
+                1 + Math.sin(time) * 0.05
+            );
+        });
+    }
+
+    createCelebrationParticles() {
+        // Create multiple particle systems for different effects
+        this.createConfetti(-4, 2);
+        this.createConfetti(4, 2);
+        this.createStars(0, -2);
+        this.createStars(-3, -1);
+        this.createStars(3, -1);
+    }
+
+    createConfetti(x, y) {
+        const confetti = new BABYLON.ParticleSystem("confetti", 100, this.scene);
+        confetti.particleTexture = new BABYLON.Texture("textures/sparkle.svg", this.scene);
+        confetti.emitter = new BABYLON.Vector3(x, y, 0);
+        confetti.minSize = 0.1;
+        confetti.maxSize = 0.3;
+        confetti.minLifeTime = 2;
+        confetti.maxLifeTime = 4;
+        confetti.emitRate = 20;
+        confetti.gravity = new BABYLON.Vector3(0, -0.1, 0);
+        confetti.direction1 = new BABYLON.Vector3(-1, 1, 0);
+        confetti.direction2 = new BABYLON.Vector3(1, 1, 0);
+        confetti.minEmitPower = 1;
+        confetti.maxEmitPower = 2;
+        confetti.addColorGradient(0, new BABYLON.Color4(1, 0, 0, 1));
+        confetti.addColorGradient(0.25, new BABYLON.Color4(0, 1, 0, 1));
+        confetti.addColorGradient(0.5, new BABYLON.Color4(0, 0, 1, 1));
+        confetti.addColorGradient(0.75, new BABYLON.Color4(1, 1, 0, 1));
+        confetti.addColorGradient(1, new BABYLON.Color4(1, 0, 1, 1));
+        confetti.start();
+    }
+
+    createStars(x, y) {
+        const stars = new BABYLON.ParticleSystem("stars", 50, this.scene);
+        stars.particleTexture = new BABYLON.Texture("textures/star.svg", this.scene);
+        stars.emitter = new BABYLON.Vector3(x, y, 0);
+        stars.minSize = 0.2;
+        stars.maxSize = 0.4;
+        stars.minLifeTime = 2;
+        stars.maxLifeTime = 3;
+        stars.emitRate = 10;
+        stars.gravity = new BABYLON.Vector3(0, 0.1, 0);
+        stars.direction1 = new BABYLON.Vector3(-0.5, 1, 0);
+        stars.direction2 = new BABYLON.Vector3(0.5, 1, 0);
+        stars.color1 = new BABYLON.Color4(1, 1, 0, 1);
+        stars.color2 = new BABYLON.Color4(1, 0.5, 0, 1);
+        stars.start();
     }
 } 
