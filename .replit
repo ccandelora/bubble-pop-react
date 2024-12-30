@@ -12,3 +12,4 @@ run = ["sh", "-c", "npm run start"]
 [[ports]]
 localPort = 3000
 externalPort = 80
+exposeLocalhost = true
