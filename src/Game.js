@@ -1197,7 +1197,7 @@ export class BubblePopGame {
         buttonContainer.height = "150px";
         buttonContainer.thickness = 0;
         buttonContainer.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
-        buttonContainer.top = "-100px";
+        buttonContainer.top = "-200px";
         guiTexture.addControl(buttonContainer);
 
         // Add "Play Again" button
