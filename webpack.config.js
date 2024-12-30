@@ -48,7 +48,9 @@ module.exports = {
         port: 3000,
         hot: true,
         open: true,
-        host: '0.0.0.0'
+        host: '0.0.0.0',
+        allowedHosts: 'all',
+        historyApiFallback: true
     },
     performance: {
         hints: false,
