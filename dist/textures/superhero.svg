@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="mask" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#4169e1;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#1e90ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#4169e1;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    <g transform="translate(50, 50) scale(0.8)">
+        <!-- Mask -->
+        <path d="M200 200 Q250 150 300 200 L400 150 Q450 200 400 250 L300 300 Q250 350 200 300 L100 250 Q50 200 100 150 Z" 
+              fill="url(#mask)" stroke="gold" stroke-width="8"/>
+        <!-- Eyes -->
+        <path d="M180 220 Q200 200 220 220 Q240 240 220 260 Q200 280 180 260 Q160 240 180 220" 
+              fill="white" stroke="none"/>
+        <path d="M280 220 Q300 200 320 220 Q340 240 320 260 Q300 280 280 260 Q260 240 280 220" 
+              fill="white" stroke="none"/>
+        <!-- Stars -->
+        <g fill="gold">
+            <path d="M150 150 L160 130 L170 150 L150 140 L170 140 Z"/>
+            <path d="M350 150 L360 130 L370 150 L350 140 L370 140 Z"/>
+            <path d="M250 280 L260 260 L270 280 L250 270 L270 270 Z"/>
+        </g>
+    </g>
+</svg> 
