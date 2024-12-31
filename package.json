@@ -4,7 +4,7 @@
   "description": "A fun bubble popping game for James and Madison",
   "main": "src/index.js",
   "scripts": {
-    "start": "webpack serve --mode development --host 127.0.0.1 --port 8080 --allowed-hosts all",
+    "start": "NODE_ENV=production webpack serve --mode production --port 80 --host 0.0.0.0 --allowed-hosts all",
     "build": "webpack --mode production",
     "test": "jest",
     "dev": "webpack serve --mode development --host 127.0.0.1 --port 8080 --allowed-hosts all"

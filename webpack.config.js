@@ -46,15 +46,15 @@ module.exports = {
             directory: path.join(__dirname, 'dist')
         },
         compress: true,
-        port: 8080,
+        port: process.env.PORT || 8080,
         hot: true,
-        host: '127.0.0.1',
+        host: process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1',
         allowedHosts: 'all',
         historyApiFallback: true,
         client: {
             webSocketURL: {
-                hostname: '127.0.0.1',
-                port: 8080
+                hostname: process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1',
+                port: process.env.PORT || 8080
             }
         },
         headers: {
