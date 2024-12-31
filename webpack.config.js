@@ -52,7 +52,11 @@ module.exports = {
         allowedHosts: 'all',
         historyApiFallback: true,
         client: {
-            webSocketURL: 'auto'
+            webSocketURL: {
+                hostname: '0.0.0.0',
+                pathname: '/ws',
+                port: 80
+            }
         },
         headers: {
             "Access-Control-Allow-Origin": "*",
