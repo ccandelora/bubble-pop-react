@@ -7,7 +7,8 @@
     "start": "NODE_ENV=production webpack serve --mode production --port 80 --host 0.0.0.0",
     "build": "webpack --mode production",
     "test": "jest",
-    "dev": "webpack serve --mode development --host 127.0.0.1 --port 8080"
+    "dev": "webpack serve --mode development --host 127.0.0.1 --port 8080",
+    "clean": "rm -rf dist node_modules"
   },
   "keywords": [
     "game",
@@ -32,6 +33,10 @@
     "copy-webpack-plugin": "^12.0.2",
     "css-loader": "^6.8.1",
     "style-loader": "^3.3.3"
+  },
+  "overrides": {
+    "rimraf": "^5.0.0",
+    "glob": "^10.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
