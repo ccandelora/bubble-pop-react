@@ -29,7 +29,7 @@ start = "typescript-language-server --stdio"
 
 [deployment]
 build = ["npm", "install"]
-run = ["npm", "start"]
+run = ["sh", "-c", "npm run build && npm start"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
