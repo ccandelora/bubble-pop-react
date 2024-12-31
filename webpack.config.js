@@ -7,7 +7,8 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'bundle.js',
-        clean: true
+        clean: true,
+        publicPath: '/'
     },
     module: {
         rules: [
@@ -47,10 +48,20 @@ module.exports = {
         compress: true,
         port: 8080,
         hot: true,
-        open: true,
-        host: '0.0.0.0',
+        host: '127.0.0.1',
         allowedHosts: 'all',
-        historyApiFallback: true
+        historyApiFallback: true,
+        client: {
+            webSocketURL: {
+                hostname: '127.0.0.1',
+                port: 8080
+            }
+        },
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": "X-Requested-With, content-type, Authorization"
+        }
     },
     performance: {
         hints: false,
